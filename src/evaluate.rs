@@ -105,3 +105,92 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
         },
     }
 }
+
+
+// ============== TESTS ===============
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::built_in_functions::built_in_function_bindings;
+
+    fn create_empty_environment() -> Rc<RefCell<Environment>> {
+        return Rc::new(RefCell::new(Environment::new()));
+    }
+
+    fn create_environment_with_built_ins() -> Rc<RefCell<Environment>> {
+        return Rc::new(RefCell::new(Environment::build(built_in_function_bindings(), None)));
+    }
+
+    #[test]
+    fn single_integer() {
+        let lisp_integer = LispExpression::Integer(1);
+        let mut env = create_empty_environment();
+
+        let expected = LispOutput::Integer(1);
+        let result = evaluate(&lisp_integer, &mut env);
+        
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn simple_defintion() {
+        let mut env = create_empty_environment();
+
+        let lisp_definition = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("x".to_string()),
+            LispExpression::Integer(2),
+        ]);
+
+        let expected = LispOutput::Integer(2);
+        let defintion_result = evaluate(&lisp_definition, &mut env);
+
+        assert_eq!(expected, defintion_result);
+
+        let lisp_x = LispExpression::Symbol("x".to_string());
+        let x_result = evaluate(&lisp_x, &mut env);
+
+        assert_eq!(expected, x_result);
+    }
+
+    #[test]
+    #[should_panic]
+    fn variable_not_found() {
+        let mut env = create_empty_environment();
+        let nonexistent_variable = LispExpression::Symbol("x".to_string());
+        evaluate(&nonexistent_variable, &mut env);
+    }
+
+    #[test]
+    fn simple_lambda() {
+        let mut env = create_environment_with_built_ins();
+        let add_one = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("add_one".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("lambda".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("x".to_string()),
+                ]),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("+".to_string()),
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Integer(1),
+                ]),
+            ]),
+        ]);
+
+        evaluate(&add_one, &mut env);
+
+        let two_plus_one = LispExpression::List(vec![
+            LispExpression::Symbol("add_one".to_string()),
+            LispExpression::Integer(2),
+        ]);
+
+        let result = evaluate(&two_plus_one, &mut env);
+        let expected = LispOutput::Integer(3);
+
+        assert_eq!(expected, result);
+    }
+}

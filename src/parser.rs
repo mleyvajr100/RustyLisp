@@ -1,5 +1,5 @@
 use crate::lisp_expression::LispExpression;
-use crate::tokenizer::{LispToken, tokenize};
+use crate::tokenizer::LispToken;
 
 pub fn parse(tokens: &Vec<LispToken>) -> LispExpression {
     fn parse_expression(mut index: usize, tokens: &Vec<LispToken>) -> (usize, LispExpression) {
@@ -46,6 +46,7 @@ pub fn parse(tokens: &Vec<LispToken>) -> LispExpression {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tokenizer::tokenize;
 
     #[test]
     #[should_panic]
