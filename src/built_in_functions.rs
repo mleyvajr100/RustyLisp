@@ -113,6 +113,8 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("<=".to_string(), convert_to_built_in(Rc::new(less_than_or_equal_compare))),
         (">".to_string(), convert_to_built_in(Rc::new(greater_than_compare))),
         (">=".to_string(), convert_to_built_in(Rc::new(greater_than_or_equal_compare))),
+        ("#t".to_string(), LispOutput::Bool(true)),
+        ("#f".to_string(), LispOutput::Bool(false)),
     ]);
 
 

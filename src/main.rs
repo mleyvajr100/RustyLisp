@@ -21,9 +21,12 @@ fn main() {
     let anonymous_lambda_result = evaluate(&parse(&tokenize("((lambda (y) (+ y 1)) 5)")), &mut env);
     let comparisons = evaluate(&parse(&tokenize("(equal? 5 5 5)")), &mut env);
 
+    let if_statement = evaluate(&parse(&tokenize("(if (< 1 2 3) 1 0)")), &mut env);
+
     println!("add_one lambda {:?}", add_one);
     println!("Should get 2 + 1 + 1 = 4: {:?}", add_one_twice);
     println!("Expecting 6: {:?}", anonymous_lambda_result);
     println!("Expecting False: {:?}", comparisons);
+    println!("Expecting 1: {:?}", if_statement);
     
 }

@@ -103,6 +103,17 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
                                 Function::build(parameters.clone(), body.clone(), env.clone())
                             )
                         );
+                    },
+                    "if" => {
+                        let condition = &expressions[1];
+                        
+                        if evaluate(condition, env) == LispOutput::Bool(true) {
+                            let true_expr = &expressions[2];
+                            return evaluate(true_expr, env);
+                        } else {
+                            let false_expr = &expressions[3];
+                            return evaluate(false_expr, env);
+                        }
                     }
                     _ => {},
                 }
@@ -127,14 +138,13 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::built_in_functions::built_in_function_bindings;
 
     fn create_empty_environment() -> Rc<RefCell<Environment>> {
         return Rc::new(RefCell::new(Environment::new()));
     }
 
-    fn create_environment_with_built_ins() -> Rc<RefCell<Environment>> {
-        return Rc::new(RefCell::new(Environment::build(built_in_function_bindings(), None)));
+    fn create_global_environment() -> Rc<RefCell<Environment>> {
+        return Rc::new(RefCell::new(Environment::global_env()));
     }
 
     #[test]
@@ -179,7 +189,7 @@ mod tests {
 
     #[test]
     fn simple_lambda() {
-        let mut env = create_environment_with_built_ins();
+        let mut env = create_global_environment();
         let add_one = LispExpression::List(vec![
             LispExpression::Symbol("define".to_string()),
             LispExpression::Symbol("add_one".to_string()),
@@ -207,5 +217,29 @@ mod tests {
         let expected = LispOutput::Integer(3);
 
         assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn simple_if_statement() {
+        let mut env = create_global_environment();
+        let always_true_expression = LispExpression::List(vec![
+            LispExpression::Symbol("if".to_string()),
+            LispExpression::Symbol("#t".to_string()),
+            LispExpression::Integer(1),
+            LispExpression::Integer(0),
+        ]);
+
+        let always_false_expression = LispExpression::List(vec![
+            LispExpression::Symbol("if".to_string()),
+            LispExpression::Symbol("#f".to_string()),
+            LispExpression::Integer(1),
+            LispExpression::Integer(0),
+        ]);
+
+        let true_result = evaluate(&always_true_expression, &mut env);
+        let false_result = evaluate(&always_false_expression, &mut env);
+
+        assert_eq!(LispOutput::Integer(1), true_result);
+        assert_eq!(LispOutput::Integer(0), false_result);
     }
 }
