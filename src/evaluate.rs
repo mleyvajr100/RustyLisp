@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::functions::{LispFunction, LispFunctionCall, Function};
 use crate::lisp_expression::LispExpression;
+use crate::built_in_functions::built_in_function_bindings;
+use crate::functions::{LispFunction, LispFunctionCall, Function};
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +36,20 @@ impl Environment {
                 bindings,
                 parent_env,
             }
+    }
+
+    pub fn built_ins_env() -> Self {
+        return Self::build(
+            built_in_function_bindings(),
+            None,
+        );
+    }
+
+    pub fn global_env() -> Self {
+        return Self::build(
+            HashMap::new(),
+            Some(Rc::new(RefCell::new(Self::built_ins_env()))),
+        );
     }
 
     fn get(&self, var: &String) -> LispOutput {
