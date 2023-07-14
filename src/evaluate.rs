@@ -70,6 +70,15 @@ impl Environment {
     }
 }
 
+fn check_arguments(args: &Vec<LispExpression>, number_of_args: usize) {
+    if args.len() != number_of_args {
+        panic!("special form was not supplied with correct number of arugments");
+    }
+}
+
+const REQUIRED_DEFINE_ARGUMENTS: usize = 3;
+const REQUIRED_LAMBDA_ARGUMENTS: usize = 3;
+const REQUIRED_IF_ARGUMENTS: usize = 4;
 
 pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> LispOutput {
     match tree {
@@ -83,6 +92,7 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
             if let LispExpression::Symbol(built_in) = &expressions[0] {
                 match &built_in[..] {
                     "define" => {
+                        check_arguments(&expressions, REQUIRED_DEFINE_ARGUMENTS);
                         let var = match &expressions[1] {
                             LispExpression::Symbol(symbol) => symbol,
                             _ => panic!("var must be LispExpression Symbol"),
@@ -95,6 +105,7 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
                         return val;
                     },
                     "lambda" => {
+                        check_arguments(&expressions, REQUIRED_LAMBDA_ARGUMENTS);
                         let parameters = &expressions[1];
                         let body = &expressions[2];
 
@@ -105,6 +116,7 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
                         );
                     },
                     "if" => {
+                        check_arguments(&expressions, REQUIRED_IF_ARGUMENTS);
                         let condition = &expressions[1];
                         
                         if evaluate(condition, env) == LispOutput::Bool(true) {
@@ -114,7 +126,25 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
                             let false_expr = &expressions[3];
                             return evaluate(false_expr, env);
                         }
-                    }
+                    },
+                    "and" => {
+                        for expr in &expressions[1..] {
+                            let clause_bool = evaluate(expr, env);
+                            if clause_bool == LispOutput::Bool(false) {
+                                return clause_bool;
+                            }
+                        }
+                        return LispOutput::Bool(true);
+                    },
+                    "or" => {
+                        for expr in &expressions[1..] {
+                            let clause_bool = evaluate(expr, env);
+                            if clause_bool == LispOutput::Bool(true) {
+                                return clause_bool;
+                            }
+                        }
+                        return LispOutput::Bool(false);
+                    },
                     _ => {},
                 }
             }
@@ -241,5 +271,168 @@ mod tests {
 
         assert_eq!(LispOutput::Integer(1), true_result);
         assert_eq!(LispOutput::Integer(0), false_result);
+    }
+
+    #[test]
+    fn simple_and_statement() {
+        let mut env = create_global_environment();
+        let single_true_expression = LispExpression::List(vec![
+            LispExpression::Symbol("and".to_string()),
+            LispExpression::Symbol("#t".to_string()),
+        ]);
+
+        let single_false_expression = LispExpression::List(vec![
+            LispExpression::Symbol("and".to_string()),
+            LispExpression::Symbol("#f".to_string()),
+        ]);
+
+        let nested_and_expression = LispExpression::List(vec![
+            LispExpression::Symbol("and".to_string()),
+            LispExpression::Symbol("#t".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("equal?".to_string()),
+                LispExpression::Integer(10),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("+".to_string()),
+                    LispExpression::Integer(1),
+                    LispExpression::Integer(2),
+                    LispExpression::Integer(3),
+                    LispExpression::Integer(4),
+                ]),
+            ]),
+        ]);
+
+        let true_result = evaluate(&single_true_expression, &mut env);
+        let false_result = evaluate(&single_false_expression, &mut env);
+        let nested_result = evaluate(&nested_and_expression, &mut env);
+
+        assert_eq!(LispOutput::Bool(true), true_result);
+        assert_eq!(LispOutput::Bool(false), false_result);
+        assert_eq!(LispOutput::Bool(true), nested_result);
+    }
+
+    #[test]
+    fn short_circuiting_and() {
+        let mut env = create_global_environment();
+        let nested_and_expression = LispExpression::List(vec![
+            LispExpression::Symbol("and".to_string()),
+            LispExpression::Symbol("#f".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("add_one".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("lambda".to_string()),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("x".to_string()),
+                    ]),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("+".to_string()),
+                        LispExpression::Symbol("x".to_string()),
+                        LispExpression::Integer(1),
+                    ]),
+                ]),
+            ]),
+        ]);
+
+        let nested_result = evaluate(&nested_and_expression, &mut env);
+
+        // add_one function should not be defined, since it is expected that
+        // the and short circuiting occurred at the first true expression
+        let borrowed_env = env.borrow();
+        let add_one_func = borrowed_env.bindings.get("add_one");
+        
+        match add_one_func {
+            Some(_) => panic!("function should not be defined!"),
+            None => {},
+        };
+
+        assert_eq!(LispOutput::Bool(false), nested_result);
+    }
+
+    #[test]
+    fn non_short_circuiting_and() {
+        let mut env = create_global_environment();
+        let nested_and_expression = LispExpression::List(vec![
+            LispExpression::Symbol("and".to_string()),
+            LispExpression::Symbol("#t".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("add_one".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("lambda".to_string()),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("x".to_string()),
+                    ]),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("+".to_string()),
+                        LispExpression::Symbol("x".to_string()),
+                        LispExpression::Integer(1),
+                    ]),
+                ]),
+            ]),
+            LispExpression::List(vec![
+                LispExpression::Symbol("equal?".to_string()),
+                LispExpression::Integer(10),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("+".to_string()),
+                    LispExpression::Integer(1),
+                    LispExpression::Integer(2),
+                    LispExpression::Integer(3),
+                    LispExpression::Integer(4),
+                ]),
+            ]),
+        ]);
+
+        let nested_result = evaluate(&nested_and_expression, &mut env);
+
+        // add_one function should not be defined, since it is expected that
+        // the and short circuiting occurred at the first true expression
+        let borrowed_env = env.borrow();
+        let add_one_func = borrowed_env.bindings.get("add_one");
+        
+        match add_one_func {
+            Some(_) => {},
+            None => { panic!("function should not be defined!") },
+        };
+
+        assert_eq!(LispOutput::Bool(true), nested_result);
+    }
+
+    #[test]
+    fn short_circuiting_or() {
+        let mut env = create_global_environment();
+        let nested_and_expression = LispExpression::List(vec![
+            LispExpression::Symbol("or".to_string()),
+            LispExpression::Symbol("#t".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("add_one".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("lambda".to_string()),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("x".to_string()),
+                    ]),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("+".to_string()),
+                        LispExpression::Symbol("x".to_string()),
+                        LispExpression::Integer(1),
+                    ]),
+                ]),
+            ]),
+        ]);
+
+        let nested_result = evaluate(&nested_and_expression, &mut env);
+
+        // add_one function should not be defined, since it is expected that
+        // the or short circuiting occurred at the first true expression
+        let borrowed_env = env.borrow();
+        let add_one_func = borrowed_env.bindings.get("add_one");
+        
+        match add_one_func {
+            Some(_) => panic!("function should not be defined!"),
+            None => {},
+        }
+
+        assert_eq!(LispOutput::Bool(true), nested_result);
     }
 }
