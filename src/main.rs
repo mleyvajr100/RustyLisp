@@ -23,10 +23,18 @@ fn main() {
 
     let if_statement = evaluate(&parse(&tokenize("(if (< 1 2 3) 1 0)")), &mut env);
 
+    let list_statement = evaluate(&parse(&tokenize("(list 1 2 3 4)")), &mut env);
+    let car_statement = evaluate(&parse(&tokenize("(car (list 1 2 3 4))")), &mut env);
+    let cdr_statement = evaluate(&parse(&tokenize("(car (cdr (list 1 2 3 4)))")), &mut env);
+
     println!("add_one lambda {:?}", add_one);
     println!("Should get 2 + 1 + 1 = 4: {:?}", add_one_twice);
     println!("Expecting 6: {:?}", anonymous_lambda_result);
     println!("Expecting False: {:?}", comparisons);
     println!("Expecting 1: {:?}", if_statement);
+
+    println!("Expecting LispList with 1, 2, 3, 4: {:?}", list_statement);
+    println!("Expecting to car of list, should be 1: {:?}", car_statement);
+    println!("Expecting second element of list, should be 2: {:?}", cdr_statement);
     
 }

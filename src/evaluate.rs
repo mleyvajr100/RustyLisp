@@ -13,6 +13,37 @@ pub enum LispOutput {
     Integer(i64),
     Bool(bool),
     Lambda(LispFunction),
+    List(Box<LispList>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LispList {
+    Cons(LispOutput, Box<LispList>),
+    Nil,
+}
+
+impl LispList {
+    pub fn build(mut args: impl Iterator<Item=LispOutput>) -> Self {
+        let first = args.next();
+        match first {
+            Some(val) => LispList::Cons(val, Box::new(LispList::build(args))),
+            None => LispList::Nil,
+        }
+    }
+
+    pub fn get_car(&self) -> LispOutput {
+        match self {
+            LispList::Cons(car, _) => car.clone(),
+            LispList::Nil => panic!("lisp list is empty!"),
+        }
+    }
+
+    pub fn get_cdr(&self) -> LispOutput {
+        match self {
+            LispList::Cons(_, cdr) => LispOutput::List(cdr.clone()),
+            LispList::Nil => panic!("lisp list is empty!"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -434,5 +465,115 @@ mod tests {
         }
 
         assert_eq!(LispOutput::Bool(true), nested_result);
+    }
+
+    #[test]
+    fn empty_list() {
+        let mut env = create_global_environment();
+        let emtpy_list_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list".to_string()),
+        ]);
+
+        let expected = LispOutput::List(Box::new(LispList::Nil));
+        let result = evaluate(&emtpy_list_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn single_element_list() {
+        let mut env = create_global_environment();
+        let list_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list".to_string()),
+            LispExpression::Integer(3),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(3),
+                    Box::new(LispList::Nil)
+                )
+            )
+        );
+
+        let result = evaluate(&list_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn multiple_element_list() {
+        let mut env = create_global_environment();
+        let list_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list".to_string()),
+            LispExpression::Integer(1),
+            LispExpression::Integer(2),
+            LispExpression::Integer(3),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(1),
+                    Box::new(
+                        LispList::Cons(
+                            LispOutput::Integer(2),
+                            Box::new(
+                                LispList::Cons(
+                                    LispOutput::Integer(3),
+                                    Box::new(LispList::Nil)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+
+        let result = evaluate(&list_expression, &mut env);
+        assert_eq!(expected, result);
+
+        let get_car_expression = LispExpression::List(vec![
+            LispExpression::Symbol("car".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+        ]);
+
+        let expected = LispOutput::Integer(1);
+        let result = evaluate(&get_car_expression, &mut env);
+        assert_eq!(expected, result);
+
+
+        let get_cdr_expression = LispExpression::List(vec![
+            LispExpression::Symbol("cdr".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(2),
+                    Box::new(
+                        LispList::Cons(
+                            LispOutput::Integer(3),
+                            Box::new(LispList::Nil)
+                        )
+                    )
+                )
+            )
+        );
+
+        let result = evaluate(&get_cdr_expression, &mut env);
+        assert_eq!(expected, result);
     }
 }

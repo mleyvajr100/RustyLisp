@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::collections::HashMap;
 
-use crate::evaluate::LispOutput;
+use crate::evaluate::{LispOutput, LispList};
 use crate::functions::{LispFunction, BuiltInFunction};
 
 
@@ -95,6 +95,32 @@ fn greater_than_or_equal_compare(args: Vec<LispOutput>) -> LispOutput {
     return comparator(Rc::new(|a, b| a >= b))(args);
 }
 
+// ============== Lisp List Built-Ins ===============
+
+fn make_list(args: Vec<LispOutput>) -> LispOutput {
+    return LispOutput::List(Box::new(LispList::build(args.into_iter())));
+}
+
+fn car_func(args: Vec<LispOutput>) -> LispOutput {
+    if args.len() != 1 {
+        panic!("only expecting a single argument to get car of cons cell!");
+    }
+    match &args[0] {
+        LispOutput::List(cons_cell) => cons_cell.get_car(),
+        _ => panic!("expecting a cons cell!"),
+    }
+}
+
+fn cdr_func(args: Vec<LispOutput>) -> LispOutput {
+    if args.len() != 1 {
+        panic!("only expecting a single argument to get cdr of cons cell!");
+    }
+    match &args[0] {
+        LispOutput::List(cons_cell) => cons_cell.get_cdr(),
+        _ => panic!("expecting a cons cell!"),
+    }
+}
+
 
 // ============== FUNCTION BUILDINGS FUNCTIONS ===============
 
@@ -115,6 +141,9 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         (">=".to_string(), convert_to_built_in(Rc::new(greater_than_or_equal_compare))),
         ("#t".to_string(), LispOutput::Bool(true)),
         ("#f".to_string(), LispOutput::Bool(false)),
+        ("list".to_string(), convert_to_built_in(Rc::new(make_list))),
+        ("car".to_string(), convert_to_built_in(Rc::new(car_func))),
+        ("cdr".to_string(), convert_to_built_in(Rc::new(cdr_func))),
     ]);
 
 
