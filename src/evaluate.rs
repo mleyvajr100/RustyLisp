@@ -44,6 +44,17 @@ impl LispList {
             LispList::Nil => panic!("lisp list is empty!"),
         }
     }
+
+    pub fn length(&self) -> LispOutput {
+        fn get_length(list: &LispList) -> i64 {
+            match list {
+                LispList::Nil => 0,
+                LispList::Cons(_, cdr) => get_length(cdr) + 1,
+            }
+        }
+
+        return LispOutput::Integer(get_length(self));
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -575,5 +586,106 @@ mod tests {
 
         let result = evaluate(&get_cdr_expression, &mut env);
         assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn is_list() {
+        let mut env = create_global_environment();
+        let list_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list?".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+        ]);
+        let list_expected = LispOutput::Bool(true);
+        
+        let function_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list?".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("add_one".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("lambda".to_string()),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("x".to_string()),
+                    ]),
+                    LispExpression::List(vec![
+                        LispExpression::Symbol("+".to_string()),
+                        LispExpression::Symbol("x".to_string()),
+                        LispExpression::Integer(1),
+                    ]),
+                ]),
+            ]), 
+        ]);
+        let function_expected = LispOutput::Bool(false);
+                        
+        let integer_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list?".to_string()),
+            LispExpression::Integer(3),
+        ]);
+        let integer_expected = LispOutput::Bool(false);
+
+        let bool_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list?".to_string()),
+            LispExpression::Symbol("#t".to_string()),
+        ]);
+        let bool_expected = LispOutput::Bool(false);
+
+        assert_eq!(list_expected, evaluate(&list_expression, &mut env));
+        assert_eq!(function_expected, evaluate(&function_expression, &mut env));
+        assert_eq!(integer_expected, evaluate(&integer_expression, &mut env));
+        assert_eq!(bool_expected, evaluate(&bool_expression, &mut env));
+    }
+
+    #[test]
+    fn empty_list_length() {
+        let mut env = create_global_environment();
+        let empty_list_length_expression = LispExpression::List(vec![
+            LispExpression::Symbol("length".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+        ]);
+        
+        let expected = LispOutput::Integer(0);
+
+        assert_eq!(expected, evaluate(&empty_list_length_expression, &mut env));
+    }
+
+    #[test]
+    fn single_element_list_length() {
+        let mut env = create_global_environment();
+        let list_length_expression = LispExpression::List(vec![
+            LispExpression::Symbol("length".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(3),
+            ]),
+        ]);
+        
+        let expected = LispOutput::Integer(1);
+
+        assert_eq!(expected, evaluate(&list_length_expression, &mut env));
+    }
+
+    #[test]
+    fn multi_element_list_length() {
+        let mut env = create_global_environment();
+        let list_length_expression = LispExpression::List(vec![
+            LispExpression::Symbol("length".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Symbol("#t".to_string()),
+                LispExpression::Symbol("nil".to_string()),
+                LispExpression::Integer(4),
+                LispExpression::Integer(5),
+            ]),
+        ]);
+        
+        let expected = LispOutput::Integer(5);
+
+        assert_eq!(expected, evaluate(&list_length_expression, &mut env));
     }
 }
