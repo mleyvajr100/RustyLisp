@@ -122,7 +122,7 @@ impl LispFunctionCall for LispFunction {
     fn call(&self, args: Vec<LispOutput>) -> LispOutput {
         match self {
             LispFunction::BuiltInFunction(function) => function.call(args),
-            LispFunction::Function(func) => func.call(args),
+            LispFunction::Function(function) => function.call(args),
         }
     }
 }

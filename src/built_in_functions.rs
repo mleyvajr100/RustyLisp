@@ -11,6 +11,7 @@ const REQUIRED_CAR_ARGUMENTS: usize = 1;
 const REQUIRED_CDR_ARGUMENTS: usize = 1;
 const REQUIRED_IS_LIST_ARGUMENTS: usize = 1;
 const REQUIRED_LIST_LENGTH_ARGUMENTS: usize = 1;
+const REQUIRED_LIST_REF_ARGUMENTS: usize = 2;
 
 
 fn unwrap_lisp_outputs(args: Vec<LispOutput>) -> impl Iterator<Item = i64> {
@@ -152,7 +153,25 @@ fn list_length_func(args: Vec<LispOutput>) -> LispOutput {
         LispOutput::List(cons_cell) => cons_cell.length(),
         _ => panic!("expecting lisp list to get length"),
     }
+}
 
+fn list_ref_func(args: Vec<LispOutput>) -> LispOutput {
+    check_output_arguments(&args, REQUIRED_LIST_REF_ARGUMENTS);
+
+    
+    let index = match args[1] {
+        LispOutput::Integer(num) => num,
+        _ => panic!("expecting an integer to use as index in list")
+    };
+    
+    if index < 0 {
+        panic!("negative indicies are not supported!");
+    }
+
+    match &args[0] {
+        LispOutput::List(cons_cell) => cons_cell.get(index),
+        _ => panic!("expecting a cons cell to index into"),
+    }
 }
 
 
@@ -181,6 +200,7 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("cdr".to_string(), convert_to_built_in(Rc::new(cdr_func))),
         ("list?".to_string(), convert_to_built_in(Rc::new(is_list_func))),
         ("length".to_string(), convert_to_built_in(Rc::new(list_length_func))),
+        ("list-ref".to_string(), convert_to_built_in(Rc::new(list_ref_func))),
     ]);
 
 

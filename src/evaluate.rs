@@ -52,8 +52,20 @@ impl LispList {
                 LispList::Cons(_, cdr) => get_length(cdr) + 1,
             }
         }
-
         return LispOutput::Integer(get_length(self));
+    }
+
+    pub fn get(&self, index: i64) -> LispOutput {
+        match self {
+            LispList::Nil => panic!("index out of bounds!"),
+            LispList::Cons(car, cdr) => {
+                if index == 0 {
+                    return car.clone();
+                }
+
+                cdr.get(index - 1)
+            }
+        }
     }
 }
 
@@ -687,5 +699,76 @@ mod tests {
         let expected = LispOutput::Integer(5);
 
         assert_eq!(expected, evaluate(&list_length_expression, &mut env));
+    }
+
+    #[test]
+    fn indexing_into_single_element_list() {
+        let mut env = create_global_environment();
+        let list_ref_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list-ref".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+            ]),
+            LispExpression::Integer(0),
+        ]);
+
+        let expected = LispOutput::Integer(1);
+        let result = evaluate(&list_ref_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn indexing_into_multi_element_list() {
+        let mut env = create_global_environment();
+        let list_ref_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list-ref".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+                LispExpression::Integer(4),
+                LispExpression::Integer(5),
+            ]),
+            LispExpression::Integer(3),
+        ]);
+
+        let expected = LispOutput::Integer(4);
+        let result = evaluate(&list_ref_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    #[should_panic]
+    fn indexing_into_empty_list() {
+        let mut env = create_global_environment();
+        let list_ref_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list-ref".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Integer(0),
+        ]);
+
+        evaluate(&list_ref_expression, &mut env);
+    }
+
+    #[test]
+    #[should_panic]
+    fn indexing_out_of_bounds_non_empty_list() {
+        let mut env = create_global_environment();
+        let list_ref_expression = LispExpression::List(vec![
+            LispExpression::Symbol("list-ref".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+            LispExpression::Integer(5),
+        ]);
+
+        evaluate(&list_ref_expression, &mut env);
     }
 }
