@@ -174,6 +174,16 @@ fn list_ref_func(args: Vec<LispOutput>) -> LispOutput {
     }
 }
 
+fn append_func(args: Vec<LispOutput>) -> LispOutput {
+    let lists = args.into_iter().map(|output| {
+        match output {
+            LispOutput::List(list) => *list,
+            _ => panic!("expecting only lisp lists for append built-in!"),
+        }
+    }).collect();
+    return LispOutput::List(Box::new(LispList::append(lists)));
+}
+
 
 // ============== FUNCTION BUILDINGS FUNCTIONS ===============
 
@@ -201,6 +211,7 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("list?".to_string(), convert_to_built_in(Rc::new(is_list_func))),
         ("length".to_string(), convert_to_built_in(Rc::new(list_length_func))),
         ("list-ref".to_string(), convert_to_built_in(Rc::new(list_ref_func))),
+        ("append".to_string(), convert_to_built_in(Rc::new(append_func))),
     ]);
 
 

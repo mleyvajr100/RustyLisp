@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::boxed::Box;
 use std::cell::RefCell;
 
 use crate::lisp_expression::LispExpression;
@@ -64,6 +65,23 @@ impl LispList {
                 }
 
                 cdr.get(index - 1)
+            }
+        }
+    }
+
+    pub fn append(lists: Vec<LispList>) -> LispList {
+        if lists.len() == 0 {
+            return LispList::Nil;
+        }
+
+        match &lists[0] {
+            LispList::Nil => LispList::append(lists[1..].to_vec()),
+            LispList::Cons(car, cdr) => {
+                let mut new_args = vec![*cdr.clone()];
+                new_args.append(&mut lists[1..].to_vec());
+                let rest = Box::new(LispList::append(new_args));
+                
+                return LispList::Cons(car.clone(), rest);
             }
         }
     }
@@ -770,5 +788,224 @@ mod tests {
         ]);
 
         evaluate(&list_ref_expression, &mut env);
+    }
+
+    #[test]
+    fn appending_no_list() {
+        let mut env = create_global_environment();
+        let append_empty_expression = LispExpression::List(vec![
+            LispExpression::Symbol("append".to_string()),
+        ]);
+
+        let expected = LispOutput::List(Box::new(LispList::Nil));
+        let result = evaluate(&append_empty_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn appending_single_empty_list() {
+        let mut env = create_global_environment();
+        let append_empty_expression = LispExpression::List(vec![
+            LispExpression::Symbol("append".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+        ]);
+
+        let expected = LispOutput::List(Box::new(LispList::Nil));
+        let result = evaluate(&append_empty_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn appending_single_non_empty_list() {
+        let mut env = create_global_environment();
+        let append_empty_expression = LispExpression::List(vec![
+            LispExpression::Symbol("append".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(1),
+                    Box::new(
+                        LispList::Cons(
+                            LispOutput::Integer(2),
+                            Box::new(
+                                LispList::Cons(
+                                    LispOutput::Integer(3),
+                                    Box::new(LispList::Nil)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+
+        let result = evaluate(&append_empty_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn appending_non_empty_list_with_empty_lists() {
+        let mut env = create_global_environment();
+        let append_empty_expression = LispExpression::List(vec![
+            LispExpression::Symbol("append".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(1),
+                    Box::new(
+                        LispList::Cons(
+                            LispOutput::Integer(2),
+                            Box::new(
+                                LispList::Cons(
+                                    LispOutput::Integer(3),
+                                    Box::new(LispList::Nil)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+
+        let result = evaluate(&append_empty_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn appending_two_non_empty_lists() {
+        let mut env = create_global_environment();
+        let append_empty_expression = LispExpression::List(vec![
+            LispExpression::Symbol("append".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+            ]),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(4),
+                LispExpression::Integer(5),
+            ]),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(1),
+                    Box::new(
+                        LispList::Cons(
+                            LispOutput::Integer(2),
+                            Box::new(
+                                LispList::Cons(
+                                    LispOutput::Integer(3),
+                                    Box::new(
+                                        LispList::Cons(
+                                            LispOutput::Integer(4),
+                                            Box::new(
+                                                LispList::Cons(
+                                                    LispOutput::Integer(5),
+                                                    Box::new(LispList::Nil)
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+
+        let result = evaluate(&append_empty_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn appending_multiple_non_empty_lists_and_empty_lists() {
+        let mut env = create_global_environment();
+        let append_empty_expression = LispExpression::List(vec![
+            LispExpression::Symbol("append".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+            ]),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(3),
+            ]),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(4),
+                LispExpression::Integer(5),
+            ]),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+        ]);
+
+        let expected = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(1),
+                    Box::new(
+                        LispList::Cons(
+                            LispOutput::Integer(2),
+                            Box::new(
+                                LispList::Cons(
+                                    LispOutput::Integer(3),
+                                    Box::new(
+                                        LispList::Cons(
+                                            LispOutput::Integer(4),
+                                            Box::new(
+                                                LispList::Cons(
+                                                    LispOutput::Integer(5),
+                                                    Box::new(LispList::Nil)
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+
+        let result = evaluate(&append_empty_expression, &mut env);
+
+        assert_eq!(expected, result);
     }
 }
