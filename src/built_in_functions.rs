@@ -3,7 +3,7 @@ use std::boxed::Box;
 use std::collections::HashMap;
 
 use crate::evaluate::{LispOutput, LispList};
-use crate::functions::{LispFunction, BuiltInFunction};
+use crate::functions::{LispFunction, BuiltInFunction, LispFunctionCall};
 
 
 const MINIMUM_REQUIRED_DIVISION_ARGUMENTS: usize = 2;
@@ -12,6 +12,7 @@ const REQUIRED_CDR_ARGUMENTS: usize = 1;
 const REQUIRED_IS_LIST_ARGUMENTS: usize = 1;
 const REQUIRED_LIST_LENGTH_ARGUMENTS: usize = 1;
 const REQUIRED_LIST_REF_ARGUMENTS: usize = 2;
+const REQUIRED_MAP_ARGUMENTS: usize = 2;
 
 
 fn unwrap_lisp_outputs(args: Vec<LispOutput>) -> impl Iterator<Item = i64> {
@@ -38,7 +39,7 @@ fn add(args: Vec<LispOutput>) -> LispOutput {
 
 fn sub(args: Vec<LispOutput>) -> LispOutput {
     if args.len() == 1 {
-        match &args[0] {
+        return match &args[0] {
             LispOutput::Integer(num) => LispOutput::Integer(-num),
             _ => panic!("Only expecting integer arugments"),
         };
@@ -184,6 +185,31 @@ fn append_func(args: Vec<LispOutput>) -> LispOutput {
     return LispOutput::List(Box::new(LispList::append(lists)));
 }
 
+fn map_func(args: Vec<LispOutput>) -> LispOutput {
+    check_output_arguments(&args, REQUIRED_MAP_ARGUMENTS);
+
+
+    fn apply_map(list: LispList, func: impl LispFunctionCall) -> LispList {
+        match list {
+            LispList::Nil => LispList::Nil,
+            LispList::Cons(car, cdr) => LispList::Cons(
+                func.call(vec![car.clone()]), 
+                Box::new(apply_map(*cdr, func))
+            )
+        }
+    }
+
+    let function = match &args[1] {
+        LispOutput::Lambda(func) => func.clone(),
+        _ => panic!("expecting second argument to be lisp function!"),
+    };
+
+    match &args[0] {
+        LispOutput::List(list) => LispOutput::List(Box::new(apply_map(*list.clone(), function))),
+        _ => panic!("expecting first argument to be lisp list!"),
+    }
+}
+
 
 // ============== FUNCTION BUILDINGS FUNCTIONS ===============
 
@@ -212,6 +238,7 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("length".to_string(), convert_to_built_in(Rc::new(list_length_func))),
         ("list-ref".to_string(), convert_to_built_in(Rc::new(list_ref_func))),
         ("append".to_string(), convert_to_built_in(Rc::new(append_func))),
+        ("map".to_string(), convert_to_built_in(Rc::new(map_func))),
     ]);
 
 
