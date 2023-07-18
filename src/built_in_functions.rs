@@ -14,6 +14,7 @@ const REQUIRED_LIST_LENGTH_ARGUMENTS: usize = 1;
 const REQUIRED_LIST_REF_ARGUMENTS: usize = 2;
 const REQUIRED_MAP_ARGUMENTS: usize = 2;
 const REQUIRED_FILTER_ARGUMENTS: usize = 2;
+const REQUIRED_REDUCE_ARGUMENTS: usize = 3;
 
 
 fn unwrap_lisp_outputs(args: Vec<LispOutput>) -> impl Iterator<Item = i64> {
@@ -244,6 +245,33 @@ fn filter_func(args: Vec<LispOutput>) -> LispOutput {
     }
 }
 
+fn reduce_func(args: Vec<LispOutput>) -> LispOutput {
+    check_output_arguments(&args, REQUIRED_REDUCE_ARGUMENTS);
+
+    fn apply_reduce(list: LispList, func: impl LispFunctionCall, initial_val: LispOutput) -> LispOutput {
+        match list {
+            LispList::Nil => initial_val,
+            LispList::Cons(car, cdr) => {
+                let new_val = func.call(vec![initial_val, car]);
+                apply_reduce(*cdr, func, new_val)
+            },
+        }
+    }
+
+    let function = match &args[1] {
+        LispOutput::Lambda(func) => func.clone(),
+        _ => panic!("expecting second argument to be lisp function!"),
+    };
+
+    let initial_val = args[2].clone();
+
+    match &args[0] {
+        LispOutput::List(list) => apply_reduce(*list.clone(), function, initial_val),
+        _ => panic!("expecting first argument to be lisp list!"),
+    }
+    
+}
+
 
 // ============== FUNCTION BUILDINGS FUNCTIONS ===============
 
@@ -274,6 +302,7 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("append".to_string(), convert_to_built_in(Rc::new(append_func))),
         ("map".to_string(), convert_to_built_in(Rc::new(map_func))),
         ("filter".to_string(), convert_to_built_in(Rc::new(filter_func))),
+        ("reduce".to_string(), convert_to_built_in(Rc::new(reduce_func))),
     ]);
 
 

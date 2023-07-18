@@ -1150,4 +1150,80 @@ mod tests {
         assert_eq!(expected_filter_false, result_false);
         assert_eq!(expected_filter_true, result_true);
     }
+
+    #[test]
+    #[should_panic]
+    fn reduce_on_non_list() {
+        let mut env = create_global_environment();
+        let reduce_expression = LispExpression::List(vec![
+            LispExpression::Symbol("reduce".to_string()),
+            LispExpression::Integer(1),
+            LispExpression::Symbol("+".to_string()),
+            LispExpression::Integer(1),
+        ]);
+
+        evaluate(&reduce_expression, &mut env);
+    }
+
+    #[test]
+    fn reduce_on_empty_list() {
+        let mut env = create_global_environment();
+        let reduce_expression = LispExpression::List(vec![
+            LispExpression::Symbol("reduce".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("+".to_string()),
+            LispExpression::Integer(0),
+        ]);
+
+        let expected = LispOutput::Integer(0);
+        let result = evaluate(&reduce_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn reduce_on_single_element_list() {
+        let mut env = create_global_environment();
+
+        let reduce_expression = LispExpression::List(vec![
+            LispExpression::Symbol("reduce".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+            ]),
+            LispExpression::Symbol("+".to_string()),
+            LispExpression::Integer(0),
+        ]);
+
+        let expected = LispOutput::Integer(1);
+
+        let result = evaluate(&reduce_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn reduce_on_multi_element_list() {
+        let mut env = create_global_environment();
+
+        let reduce_expression = LispExpression::List(vec![
+            LispExpression::Symbol("reduce".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(1),
+                LispExpression::Integer(2),
+                LispExpression::Integer(3),
+                LispExpression::Integer(4),
+                LispExpression::Integer(5),
+            ]),
+            LispExpression::Symbol("+".to_string()),
+            LispExpression::Integer(0),
+        ]);
+
+        let expected = LispOutput::Integer(15);
+
+        let result = evaluate(&reduce_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
 }
