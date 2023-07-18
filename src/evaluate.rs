@@ -1226,4 +1226,89 @@ mod tests {
 
         assert_eq!(expected, result);
     }
+
+    #[test]
+    #[should_panic]
+    fn begin_empty_arguments() {
+        let mut env = create_global_environment();
+
+        let begin_expression = LispExpression::List(vec![
+            LispExpression::Symbol("begin".to_string()),
+        ]);
+        
+        evaluate(&begin_expression, &mut env);
+    }
+
+    #[test]
+    fn begin_single_argument() {
+        let mut env = create_global_environment();
+
+        let begin_expression = LispExpression::List(vec![
+            LispExpression::Symbol("begin".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("x".to_string()),
+                LispExpression::Integer(2),
+            ]),
+            LispExpression::Symbol("x".to_string()),
+        ]);
+
+        let expected = LispOutput::Integer(2);
+
+        let result = evaluate(&begin_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn begin_multiple_arguments() {
+        let mut env = create_global_environment();
+
+        let add_one_func = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("add_one".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("lambda".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("x".to_string()),
+                ]),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("+".to_string()),
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Integer(1),
+                ])
+            ])
+        ]);
+
+        // x = 2
+        // y = x + 3  - should evaluate to 5
+        // add_one(y) - should evaluate to 6
+        let begin_expression = LispExpression::List(vec![
+            LispExpression::Symbol("begin".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("x".to_string()),
+                LispExpression::Integer(2),
+            ]),
+            LispExpression::List(vec![
+                LispExpression::Symbol("define".to_string()),
+                LispExpression::Symbol("y".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("+".to_string()),
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Integer(3),
+                ]),
+            ]),
+            LispExpression::List(vec![
+                add_one_func,
+                LispExpression::Symbol("y".to_string()),
+            ])
+        ]);
+
+        let expected = LispOutput::Integer(6);
+
+        let result = evaluate(&begin_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
 }

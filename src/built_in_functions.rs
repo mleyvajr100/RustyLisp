@@ -268,8 +268,15 @@ fn reduce_func(args: Vec<LispOutput>) -> LispOutput {
     match &args[0] {
         LispOutput::List(list) => apply_reduce(*list.clone(), function, initial_val),
         _ => panic!("expecting first argument to be lisp list!"),
+    }    
+}
+
+fn begin_func(args: Vec<LispOutput>) -> LispOutput {
+    let number_of_args = args.len();
+    if number_of_args == 0 {
+        panic!("expecting arguments to begin function to be non-zero");
     }
-    
+    return args[number_of_args - 1].clone();
 }
 
 
@@ -303,6 +310,7 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("map".to_string(), convert_to_built_in(Rc::new(map_func))),
         ("filter".to_string(), convert_to_built_in(Rc::new(filter_func))),
         ("reduce".to_string(), convert_to_built_in(Rc::new(reduce_func))),
+        ("begin".to_string(), convert_to_built_in(Rc::new(begin_func))),
     ]);
 
 
