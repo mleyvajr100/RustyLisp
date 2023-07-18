@@ -1063,4 +1063,91 @@ mod tests {
 
         assert_eq!(expected, result);
     }
+
+    #[test]
+    #[should_panic]
+    fn filter_on_non_list() {
+        let mut env = create_global_environment();
+        let map_expression = LispExpression::List(vec![
+            LispExpression::Symbol("filter".to_string()),
+            LispExpression::Integer(1),
+            LispExpression::Symbol("+".to_string()),
+        ]);
+
+        evaluate(&map_expression, &mut env);
+    }
+
+    #[test]
+    fn filter_on_empty_list() {
+        let mut env = create_global_environment();
+        let map_expression = LispExpression::List(vec![
+            LispExpression::Symbol("filter".to_string()),
+            LispExpression::Symbol("nil".to_string()),
+            LispExpression::Symbol("+".to_string()),
+        ]);
+
+        let expected = LispOutput::List(Box::new(LispList::Nil));
+        let result = evaluate(&map_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn filter_on_single_element_list() {
+        let mut env = create_global_environment();
+
+        let greater_than_one_func = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("greater_than_one".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("lambda".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("x".to_string()),
+                ]),
+                LispExpression::List(vec![
+                    LispExpression::Symbol(">".to_string()),
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Integer(1),
+                ])
+            ])
+        ]);
+
+        evaluate(&greater_than_one_func, &mut env);
+
+        let filter_expression_false = LispExpression::List(vec![
+            LispExpression::Symbol("filter".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(0),
+            ]),
+            LispExpression::Symbol("greater_than_one".to_string()),
+        ]);
+
+        let filter_expression_true = LispExpression::List(vec![
+            LispExpression::Symbol("filter".to_string()),
+            LispExpression::List(vec![
+                LispExpression::Symbol("list".to_string()),
+                LispExpression::Integer(3),
+            ]),
+            LispExpression::Symbol("greater_than_one".to_string()),
+        ]);
+
+        let expected_filter_false = LispOutput::List(Box::new(LispList::Nil));
+        let expected_filter_true = LispOutput::List(
+            Box::new(
+                LispList::Cons(
+                    LispOutput::Integer(3),
+                    Box::new(
+                        LispList::Nil,
+                    )
+                )
+            )
+        );
+
+        let result_false = evaluate(&filter_expression_false, &mut env);
+        let result_true = evaluate(&filter_expression_true, &mut env);
+
+        assert_eq!(expected_filter_false, result_false);
+        assert_eq!(expected_filter_true, result_true);
+    }
 }

@@ -13,6 +13,7 @@ const REQUIRED_IS_LIST_ARGUMENTS: usize = 1;
 const REQUIRED_LIST_LENGTH_ARGUMENTS: usize = 1;
 const REQUIRED_LIST_REF_ARGUMENTS: usize = 2;
 const REQUIRED_MAP_ARGUMENTS: usize = 2;
+const REQUIRED_FILTER_ARGUMENTS: usize = 2;
 
 
 fn unwrap_lisp_outputs(args: Vec<LispOutput>) -> impl Iterator<Item = i64> {
@@ -188,7 +189,6 @@ fn append_func(args: Vec<LispOutput>) -> LispOutput {
 fn map_func(args: Vec<LispOutput>) -> LispOutput {
     check_output_arguments(&args, REQUIRED_MAP_ARGUMENTS);
 
-
     fn apply_map(list: LispList, func: impl LispFunctionCall) -> LispList {
         match list {
             LispList::Nil => LispList::Nil,
@@ -206,6 +206,40 @@ fn map_func(args: Vec<LispOutput>) -> LispOutput {
 
     match &args[0] {
         LispOutput::List(list) => LispOutput::List(Box::new(apply_map(*list.clone(), function))),
+        _ => panic!("expecting first argument to be lisp list!"),
+    }
+}
+
+fn filter_func(args: Vec<LispOutput>) -> LispOutput {
+    check_output_arguments(&args, REQUIRED_FILTER_ARGUMENTS);
+
+    fn apply_filter(list: LispList, func: impl LispFunctionCall) -> LispList {
+        match list {
+            LispList::Nil => LispList::Nil,
+            LispList::Cons(car, cdr) => {
+                if let LispOutput::Bool(should_keep) = func.call(vec![car.clone()]) {
+                    if !should_keep {
+                        return apply_filter(*cdr, func);
+                    }
+
+                    return LispList::Cons(
+                        car, 
+                        Box::new(apply_filter(*cdr, func))
+                    );
+                }
+
+                panic!("expecting element to evaluate to boolean!");
+            },
+        }
+    }
+
+    let function = match &args[1] {
+        LispOutput::Lambda(func) => func.clone(),
+        _ => panic!("expecting second argument to be lisp function!"),
+    };
+
+    match &args[0] {
+        LispOutput::List(list) => LispOutput::List(Box::new(apply_filter(*list.clone(), function))),
         _ => panic!("expecting first argument to be lisp list!"),
     }
 }
@@ -239,6 +273,7 @@ pub fn built_in_function_bindings() -> HashMap<String, LispOutput> {
         ("list-ref".to_string(), convert_to_built_in(Rc::new(list_ref_func))),
         ("append".to_string(), convert_to_built_in(Rc::new(append_func))),
         ("map".to_string(), convert_to_built_in(Rc::new(map_func))),
+        ("filter".to_string(), convert_to_built_in(Rc::new(filter_func))),
     ]);
 
 
