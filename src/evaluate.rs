@@ -1068,26 +1068,26 @@ mod tests {
     #[should_panic]
     fn filter_on_non_list() {
         let mut env = create_global_environment();
-        let map_expression = LispExpression::List(vec![
+        let filter_expression = LispExpression::List(vec![
             LispExpression::Symbol("filter".to_string()),
             LispExpression::Integer(1),
             LispExpression::Symbol("+".to_string()),
         ]);
 
-        evaluate(&map_expression, &mut env);
+        evaluate(&filter_expression, &mut env);
     }
 
     #[test]
     fn filter_on_empty_list() {
         let mut env = create_global_environment();
-        let map_expression = LispExpression::List(vec![
+        let filter_expression = LispExpression::List(vec![
             LispExpression::Symbol("filter".to_string()),
             LispExpression::Symbol("nil".to_string()),
             LispExpression::Symbol("+".to_string()),
         ]);
 
         let expected = LispOutput::List(Box::new(LispList::Nil));
-        let result = evaluate(&map_expression, &mut env);
+        let result = evaluate(&filter_expression, &mut env);
 
         assert_eq!(expected, result);
     }
