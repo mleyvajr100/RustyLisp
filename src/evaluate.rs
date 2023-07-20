@@ -140,6 +140,25 @@ impl Environment {
     fn set(&mut self, var: &String, val: &LispOutput) {
         self.bindings.insert(var.clone(), val.clone());
     }
+
+    fn del(&mut self, var: &String) -> LispOutput {
+        if !self.bindings.contains_key(var) {
+            panic!("variable not found in environment!");
+        }
+        return self.bindings.remove(var).unwrap();
+    }
+
+    fn set_bang(&mut self, var: &String, val: LispOutput) -> LispOutput {
+        if self.bindings.contains_key(var) {
+            self.bindings.insert(var.clone(), val.clone());
+            return val;
+        }
+
+        match &self.parent_env {
+            Some(env) => env.borrow_mut().set_bang(var, val),
+            None => panic!("variable does not exist in any environment!"),
+        }
+    }
 }
 
 fn check_arguments(args: &Vec<LispExpression>, number_of_args: usize) {
@@ -151,6 +170,9 @@ fn check_arguments(args: &Vec<LispExpression>, number_of_args: usize) {
 const REQUIRED_DEFINE_ARGUMENTS: usize = 3;
 const REQUIRED_LAMBDA_ARGUMENTS: usize = 3;
 const REQUIRED_IF_ARGUMENTS: usize = 4;
+const REQUIRED_DEL_ARGUMENTS: usize = 2;
+const REQUIRED_LET_ARGUMENTS: usize = 3;
+const REQUIRED_SET_BANG_ARGUMENTS: usize = 3;
 
 pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> LispOutput {
     match tree {
@@ -216,6 +238,52 @@ pub fn evaluate(tree: &LispExpression, env: &mut Rc<RefCell<Environment>>) -> Li
                             }
                         }
                         return LispOutput::Bool(false);
+                    },
+                    "del" => {
+                        check_arguments(&expressions, REQUIRED_DEL_ARGUMENTS);
+                        if let LispExpression::Symbol(symbol) = &expressions[1] {
+                            return env.borrow_mut().del(&symbol);
+                        }
+                        panic!("expecting a symbol when removing a binding!");
+                    },
+                    "let" => {
+                        check_arguments(&expressions, REQUIRED_LET_ARGUMENTS);
+
+                        let mut bindings = HashMap::new();
+
+                        if let LispExpression::List(definitions) = &expressions[1] {
+                            for def in definitions {
+                                if let LispExpression::List(binding) = &def {
+                                    let var = match &binding[0] {
+                                        LispExpression::Symbol(symbol) => symbol,
+                                        _ => panic!("expecting first element of binding to be symbol!"),
+                                    };
+                                    let expr = &binding[1];
+
+                                    bindings.insert(var.clone(), evaluate(expr, env));
+                                } else {
+                                    panic!("each binding should be a LispExpression List!");
+                                }
+                            }
+                        } else {
+                            panic!("expecting list of bindings");
+                        }
+
+                        let mut new_env = Rc::new(RefCell::new(Environment::build(
+                            bindings,
+                            Some(env.clone()),
+                        )));
+
+                        return evaluate(&expressions[2], &mut new_env);
+                    },
+                    "set!" => {
+                        check_arguments(&expressions, REQUIRED_SET_BANG_ARGUMENTS);
+                        let variable = match &expressions[1] {
+                            LispExpression::Symbol(variable) => variable,
+                            _ => panic!("expecting variable to be String type!"),
+                        };
+                        let value = evaluate(&expressions[2], env);
+                        return env.borrow_mut().set_bang(variable, value);
                     },
                     _ => {},
                 }
@@ -1310,5 +1378,169 @@ mod tests {
         let result = evaluate(&begin_expression, &mut env);
 
         assert_eq!(expected, result);
+    }
+
+    #[test]
+    #[should_panic]
+    fn del_non_existent_object() {
+        let mut env = create_global_environment();
+
+        let del_expression = LispExpression::List(vec![
+            LispExpression::Symbol("del".to_string()),
+            LispExpression::Symbol("add_one".to_string()),
+        ]);
+
+        evaluate(&del_expression, &mut env);
+    }
+
+    #[test]
+    fn del_variable_definition() {
+        let mut env = create_global_environment();
+
+        let define_var = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("x".to_string()),
+            LispExpression::Integer(2),
+        ]);
+
+        evaluate(&define_var, &mut env);
+
+        let del_expression = LispExpression::List(vec![
+            LispExpression::Symbol("del".to_string()),
+            LispExpression::Symbol("x".to_string()),
+        ]);
+
+        let expected = LispOutput::Integer(2);
+        let result = evaluate(&del_expression, &mut env);
+        
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    #[should_panic]
+    fn del_variable_definition_twice() {
+        let mut env = create_global_environment();
+
+        let define_var = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("x".to_string()),
+            LispExpression::Integer(2),
+        ]);
+
+        evaluate(&define_var, &mut env);
+
+        let del_expression = LispExpression::List(vec![
+            LispExpression::Symbol("del".to_string()),
+            LispExpression::Symbol("x".to_string()),
+        ]);
+
+        let expected = LispOutput::Integer(2);
+        let result = evaluate(&del_expression, &mut env);
+        
+        assert_eq!(expected, result);
+
+        evaluate(&del_expression, &mut env);
+    }
+
+    #[test]
+    fn let_simple_variable_definition() {
+        let mut env = create_global_environment();
+
+        let let_expression = LispExpression::List(vec![
+            LispExpression::Symbol("let".to_string()),
+            LispExpression::List(vec![
+                LispExpression::List(vec![
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Integer(2),
+                ])
+            ]),
+            LispExpression::Symbol("x".to_string()),
+        ]);
+
+        let expected = LispOutput::Integer(2);
+        let result = evaluate(&let_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn let_binary_operations() {
+        let mut env = create_global_environment();
+
+        let let_expression = LispExpression::List(vec![
+            LispExpression::Symbol("let".to_string()),
+            LispExpression::List(vec![
+                LispExpression::List(vec![
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Integer(2),
+                ]),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("y".to_string()),
+                    LispExpression::Integer(3),
+                ]),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("z".to_string()),
+                    LispExpression::Integer(6),
+                ]),
+            ]),
+            LispExpression::List(vec![
+                LispExpression::Symbol("equal?".to_string()),
+                LispExpression::List(vec![
+                    LispExpression::Symbol("*".to_string()),
+                    LispExpression::Symbol("x".to_string()),
+                    LispExpression::Symbol("y".to_string()),
+                ]),
+                LispExpression::Symbol("z".to_string()),
+            ]),
+        ]);
+
+        let expected = LispOutput::Bool(true);
+        let result = evaluate(&let_expression, &mut env);
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    #[should_panic]
+    fn set_bang_non_existent_variable() {
+        let mut env = create_global_environment();
+
+        let set_bang_expression = LispExpression::List(vec![
+            LispExpression::Symbol("set!".to_string()),
+            LispExpression::Symbol("x".to_string()),
+            LispExpression::Integer(2),
+        ]);
+
+        evaluate(&set_bang_expression, &mut env);
+    }
+
+    #[test]
+    fn set_bang_single_variable() {
+        let mut env = create_global_environment();
+
+        let define_x = LispExpression::List(vec![
+            LispExpression::Symbol("define".to_string()),
+            LispExpression::Symbol("x".to_string()),
+            LispExpression::Integer(2),
+        ]);
+
+        evaluate(&define_x, &mut env);
+
+        let get_x = LispExpression::Symbol("x".to_string());
+        let expected_x_before = LispOutput::Integer(2);
+
+        assert_eq!(expected_x_before, evaluate(&get_x, &mut env));
+        
+        let set_bang_expression = LispExpression::List(vec![
+            LispExpression::Symbol("set!".to_string()),
+            LispExpression::Symbol("x".to_string()),
+            LispExpression::Integer(5),
+        ]);
+
+        let set_bang_result = evaluate(&set_bang_expression, &mut env);
+        let expected_x_after = LispOutput::Integer(5);
+
+        assert_eq!(expected_x_after, set_bang_result);
+        assert_eq!(expected_x_after, evaluate(&get_x, &mut env));
     }
 }
